@@ -3,6 +3,7 @@
 #import <AVKit/AVKit.h>
 #import <MediaPlayer/MediaPlayer.h>
 #import "RCTConvert+RNJWPlayer.h"
+#import <React/RCTLog.h>
 
 @implementation RNJWPlayerView
 
@@ -503,17 +504,14 @@
     
     id ads = config[@"advertising"];
     if (ads != nil && (ads != (id)[NSNull null])) {
-        JWAdvertisingConfig* advertising;
-        JWAdsAdvertisingConfigBuilder* adConfigBuilder = [[JWAdsAdvertisingConfigBuilder alloc] init];
-                 
-         id adClient = ads[@"adClient"];
-         if ((adClient != nil) && (adClient != (id)[NSNull null])) {
+        JWAdClient jwAdClient;
+        id adClient = ads[@"adClient"];
+        if ((adClient != nil) && (adClient != (id)[NSNull null])) {
              int clientType = (int)[RCTConvert JWAdClient:adClient];
-             JWAdClient jwAdClient;
              switch (clientType) {
-                 case 0:
-                     jwAdClient = JWAdClientJWPlayer;
-                     break;
+//                  case 0:
+//                      jwAdClient = JWAdClientJWPlayer;
+//                      break;
                  case 1:
     //                 JWImaAdvertisingConfigBuilder
                      jwAdClient = JWAdClientGoogleIMA;
@@ -522,72 +520,108 @@
     //                 JWImaDaiAdvertisingConfigBuilder
                      jwAdClient = JWAdClientGoogleIMADAI;
                      break;
-                 case 3:
-                     jwAdClient = JWAdClientUnknown;
-                     break;
-
+//                  case 3:
+//                      jwAdClient = JWAdClientUnknown;
+//                      break;
                  default:
-                     jwAdClient = JWAdClientUnknown;
+                     jwAdClient = JWAdClientJWPlayer;
                      break;
              }
-         } else {
+       } else {
+            jwAdClient = JWAdClientJWPlayer;
+       }
 
-         }
+       RCTLog(@">>> Advertising configuring");
+
+       JWAdvertisingConfig* advertising;
+
+       // IMA AdSchedule
+       if (jwAdClient == JWAdClientGoogleIMA) {
+            // IMA ads builder
+           JWImaAdvertisingConfigBuilder* adConfigBuilder = [[JWImaAdvertisingConfigBuilder alloc] init];
+
+           // [adConfigBuilder adRules:(JWAdRules * _Nonnull)];
+           id schedule = ads[@"adSchedule"];
+           if(schedule != nil && (schedule != (id)[NSNull null])) {
+               NSArray* scheduleAr = (NSArray*)schedule;
+               if (scheduleAr.count > 0) {
+                   NSMutableArray <JWAdBreak*>* scheduleArray = [[NSMutableArray alloc] init];
+
+                   for (id item in scheduleAr) {
+                       NSString *offsetString = [item objectForKey:@"offset"];
+                       NSString *tag = [item objectForKey:@"tag"];
+                       NSURL* tagUrl = [NSURL URLWithString:tag];
+
+                       // JWAdBreak *adBreak = [JWAdBreak init];
+                       JWAdBreakBuilder* adBreakBuilder = [[JWAdBreakBuilder alloc] init];
+                       JWAdOffset* offset = [JWAdOffset fromString:offsetString];
+                       if (offset == nil) {
+                           offset = [JWAdOffset preroll];
+                       }
+
+                       [adBreakBuilder offset:offset];
+                       [adBreakBuilder tags:@[tagUrl]];
+
+                       JWAdBreak *adBreak = [adBreakBuilder buildAndReturnError:&error];
+                       if (error != nil) {
+                           RCTLog(@">> >Error: failed to create JWAdBreak %@", error);
+                       } else {
+                           [scheduleArray addObject:adBreak];
+                       }
+                   }
+
+                   if (scheduleArray.count > 0) {
+                       [adConfigBuilder schedule:scheduleArray];
+                   }
+
+                   RCTLog(@">>> Creating IMA Ads config: %@", scheduleArray);
+
+                   advertising = [adConfigBuilder buildAndReturnError:&error];
+                   if (error != nil) {
+                      RCTLog(@">>> Error: failed to create IMA Ads config %@", error);
+                   }
+               }
+           }
+       }
+
+       // fallback to Vmap
+       if (advertising == nil) {
+           JWAdsAdvertisingConfigBuilder* adConfigBuilder = [[JWAdsAdvertisingConfigBuilder alloc] init];
+           id tag = ads[@"tag"];
+           if (tag != nil && (tag != (id)[NSNull null])) {
+               RCTLog(@">>> Advertising tag");
+               NSURL* tagUrl = [NSURL URLWithString:tag];
+               [adConfigBuilder tag:tagUrl];
+           }
+
+           id adVmap = ads[@"adVmap"];
+           if (adVmap != nil && (adVmap != (id)[NSNull null])) {
+               RCTLog(@">>> Advertising adVmap");
+               NSURL* adVmapUrl = [NSURL URLWithString:adVmap];
+               [adConfigBuilder vmapURL:adVmapUrl];
+           }
+
+           id openBrowserOnAdClick = ads[@"openBrowserOnAdClick"];
+           if (openBrowserOnAdClick != nil && (openBrowserOnAdClick != (id)[NSNull null])) {
+               [adConfigBuilder openBrowserOnAdClick:openBrowserOnAdClick];
+           }
+
+           advertising = [adConfigBuilder buildAndReturnError:&error];
+           if (error != nil) {
+               RCTLog(@">>> Error: failed to create Ad Config %@", error);
+           }
+       }
         
-        // [adConfigBuilder adRules:(JWAdRules * _Nonnull)];
-        
-        id schedule = ads[@"adSchedule"];
-        if(schedule != nil && (schedule != (id)[NSNull null])) {
-            NSArray* scheduleAr = (NSArray*)schedule;
-            if (scheduleAr.count > 0) {
-                NSMutableArray <JWAdBreak*>* scheduleArray = [[NSMutableArray alloc] init];
-                
-                for (id item in scheduleAr) {
-                    NSString *offsetString = [item objectForKey:@"offset"];
-                    NSString *tag = [item objectForKey:@"tag"];
-                    NSURL* tagUrl = [NSURL URLWithString:tag];
-                    
-                    JWAdBreak *adBreak = [JWAdBreak init];
-                    JWAdBreakBuilder* adBreakBuilder = [[JWAdBreakBuilder alloc] init];
-                    JWAdOffset* offset = [JWAdOffset fromString:offsetString];
-                    
-                    [adBreakBuilder offset:offset];
-                    [adBreakBuilder tags:@[tagUrl]];
-                    
-                    adBreak = [adBreakBuilder buildAndReturnError:&error];
-                    
-                    [scheduleArray addObject:adBreak];
-                }
-            
-                if (scheduleArray.count > 0) {
-                    [adConfigBuilder schedule:scheduleArray];
-                }
-            }
+        if (advertising != nil) {
+            RCTLog(@">>> Advertising configured");
+            [configBuilder advertising:advertising];
         }
-        
-        id tag = ads[@"tag"];
-        if (tag != nil && (tag != (id)[NSNull null])) {
-            NSURL* tagUrl = [NSURL URLWithString:tag];
-            [adConfigBuilder tag:tagUrl];
-        }
-                
-        id adVmap = ads[@"adVmap"];
-        if (adVmap != nil && (adVmap != (id)[NSNull null])) {
-            NSURL* adVmapUrl = [NSURL URLWithString:adVmap];
-            [adConfigBuilder vmapURL:adVmapUrl];
-        }
-        
-        id openBrowserOnAdClick = ads[@"openBrowserOnAdClick"];
-        if (openBrowserOnAdClick != nil && (openBrowserOnAdClick != (id)[NSNull null])) {
-            [adConfigBuilder openBrowserOnAdClick:openBrowserOnAdClick];
-        }
-        
-        advertising = [adConfigBuilder buildAndReturnError:&error];
-        [configBuilder advertising:advertising];
     }
     
     JWPlayerConfiguration* playerConfig = [configBuilder buildAndReturnError:&error];
-    
+    if (error != nil) {
+       RCTLog(@">>> Error: failed to create player config %@", error);
+    }
     return playerConfig;
 }
 
@@ -770,14 +804,18 @@
     }
 }
 
-- (void)jwplayer:(id<JWPlayer> _Nonnull)player encounteredAdError:(NSUInteger)code message:(NSString * _Nonnull)message {
+- (void)jwplayer:(id<JWPlayer> _Nonnull)player encounteredAdError:(NSUInteger)code message:(NSString * _Nonnull)message
+{
+    RCTLog(@">>> Error: AdError %@", message);
     if (self.onPlayerAdError) {
         self.onPlayerAdError(@{@"error": message});
     }
 }
 
 
-- (void)jwplayer:(id<JWPlayer> _Nonnull)player encounteredAdWarning:(NSUInteger)code message:(NSString * _Nonnull)message {
+- (void)jwplayer:(id<JWPlayer> _Nonnull)player encounteredAdWarning:(NSUInteger)code message:(NSString * _Nonnull)message
+{
+    RCTLog(@">>> Warn: AdWarning %@", message);
     if (self.onPlayerAdWarning) {
         self.onPlayerAdWarning(@{@"warning": message});
     }
@@ -1256,6 +1294,7 @@
 #pragma mark - JWPlayer Ad Delegate
 
 - (void)jwplayer:(id _Nonnull)player adEvent:(JWAdEvent * _Nonnull)event {
+    RCTLog(@">>> AdEvent type=%@", @(event.type));
     if (self.onAdEvent) {
         self.onAdEvent(@{@"client": @(event.client), @"type": @(event.type)});
     }
