@@ -44,6 +44,7 @@ import com.jwplayer.pub.api.configuration.ads.VastAdvertisingConfig;
 import com.jwplayer.pub.api.configuration.ads.VmapAdvertisingConfig;
 import com.jwplayer.pub.api.configuration.ads.dai.ImaDaiAdvertisingConfig;
 import com.jwplayer.pub.api.configuration.ads.ima.ImaAdvertisingConfig;
+import com.jwplayer.pub.api.configuration.ads.ima.ImaVmapAdvertisingConfig;
 import com.jwplayer.pub.api.events.AdPauseEvent;
 import com.jwplayer.pub.api.events.AdPlayEvent;
 import com.jwplayer.pub.api.events.AudioTrackChangedEvent;
@@ -698,9 +699,21 @@ public class RNJWPlayerView extends RelativeLayout implements
                 configBuilder.advertisingConfig(advertisingConfig);
             } else if (ads != null && ads.hasKey("adVmap")) {
                 String adVmap = ads.getString("adVmap");
-                advertisingConfig = new VmapAdvertisingConfig.Builder().tag(adVmap).build();
-
-                configBuilder.advertisingConfig(advertisingConfig);
+                if (ads.hasKey("adClient") &&
+                    ads.getString("adClient") != null && adVmap != null) {
+                      Integer clientType = CLIENT_TYPES.get(ads.getString("adClient"));
+                      switch (clientType) {
+                          case 1:
+                              client = AdClient.IMA;
+                              advertisingConfig = new ImaVmapAdvertisingConfig.Builder().tag(adVmap).build();
+                              break;
+                          default:
+                              client = AdClient.VAST;
+                              advertisingConfig = new VmapAdvertisingConfig.Builder().tag(adVmap).build();
+                              break;
+                      }
+                      configBuilder.advertisingConfig(advertisingConfig);
+                }
             }
         }
 
@@ -735,7 +748,7 @@ public class RNJWPlayerView extends RelativeLayout implements
         this.destroyPlayer();
 
         mPlayerView = new RNJWPlayer(simpleContext);
-        
+
         mPlayerView.setFocusable(true);
         mPlayerView.setFocusableInTouchMode(true);
 
@@ -974,7 +987,7 @@ public class RNJWPlayerView extends RelativeLayout implements
     }
 
     // AdEvents
-    
+
     @Override
     public void onAdPause(AdPauseEvent adPauseEvent) {
         WritableMap event = Arguments.createMap();
@@ -1286,5 +1299,3 @@ public class RNJWPlayerView extends RelativeLayout implements
             .put("audiotracks_submenu", UiGroup.SETTINGS_AUDIOTRACKS_SUBMENU)
             .put("casting_menu", UiGroup.CASTING_MENU).build();
 }
-
-
