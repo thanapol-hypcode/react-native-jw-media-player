@@ -50,6 +50,7 @@ RCT_EXPORT_VIEW_PROPERTY(onPlayerWarning, RCTBubblingEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onPlayerAdWarning, RCTBubblingEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onPlayerAdError, RCTBubblingEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onAdEvent, RCTBubblingEventBlock);
+RCT_EXPORT_VIEW_PROPERTY(onAdTime, RCTBubblingEventBlock);
 
 /* jwplayer view controller events */
 RCT_EXPORT_VIEW_PROPERTY(onControlBarVisible, RCTBubblingEventBlock);
@@ -486,6 +487,62 @@ RCT_EXPORT_METHOD(setLockScreenControls: (nonnull NSNumber *)reactTag: (BOOL)sho
         } else {
             if (view.playerViewController) {
                 view.playerViewController.enableLockScreenControls = show;
+            }
+        }
+    }];
+}
+
+RCT_EXPORT_METHOD(setCurrentCaptions: (nonnull NSNumber *)reactTag: (nonnull NSNumber *)index) {
+    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RNJWPlayerView *> *viewRegistry) {
+        RNJWPlayerView *view = viewRegistry[reactTag];
+        if (![view isKindOfClass:[RNJWPlayerView class]] || (view.playerView == nil && view.playerViewController == nil)) {
+            RCTLogError(@"Invalid view returned from registry, expecting RNJWPlayerView, got: %@", view);
+        } else {
+            if (view.playerView) {
+                [view.playerView.player setCurrentCaptionsTrack:[index integerValue] + 1];
+            } else if (view.playerViewController) {
+                [view.playerViewController.player setCurrentCaptionsTrack:[index integerValue] + 1];
+            }
+        }
+    }];
+}
+
+RCT_EXPORT_METHOD(setLicenseKey: (nonnull NSNumber *)reactTag: (nonnull NSString *)license) {
+    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RNJWPlayerView *> *viewRegistry) {
+        RNJWPlayerView *view = viewRegistry[reactTag];
+        if (![view isKindOfClass:[RNJWPlayerView class]]) {
+            RCTLogError(@"Invalid view returned from registry, expecting RNJWPlayerView, got: %@", view);
+        } else {
+            [view setLicense:license];
+        }
+    }];
+}
+
+RCT_EXPORT_METHOD(quite) {
+    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RNJWPlayerView *> *viewRegistry) {
+        for (id view in viewRegistry) {
+            if ([view isKindOfClass:[RNJWPlayerView class]]) {
+                RNJWPlayerView *rnjwView = view;
+                if (rnjwView.playerView) {
+                    [rnjwView.playerView.player pause];
+                    [rnjwView.playerView.player stop];
+                } else if (rnjwView.playerViewController) {
+                    [rnjwView.playerViewController.player pause];
+                    [rnjwView.playerViewController.player stop];
+                }
+            }
+        }
+    }];
+}
+
+RCT_EXPORT_METHOD(reset) {
+    [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, RNJWPlayerView *> *viewRegistry) {
+        for (id view in viewRegistry) {
+            if ([view isKindOfClass:[RNJWPlayerView class]]) {
+                RNJWPlayerView *rnjwView = view;
+                if (rnjwView) {
+                    [rnjwView startDeinitProcess];
+                }
             }
         }
     }];

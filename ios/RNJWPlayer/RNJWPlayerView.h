@@ -8,11 +8,16 @@
 #import <AVKit/AVKit.h>
 #import <JWPlayerKit/JWPlayerKit-swift.h>
 #import <GoogleCast/GoogleCast.h>
+#import "RNJWPlayerViewController.h"
+
+@class RNJWPlayerViewController;
 
 @interface RNJWPlayerView : UIView  <JWPlayerDelegate, JWPlayerStateDelegate, JWAdDelegate, JWCastDelegate, JWAVDelegate, JWPlayerViewDelegate, JWPlayerViewControllerDelegate, JWDRMContentKeyDataSource, AVPictureInPictureControllerDelegate>
 
-@property(nonatomic, strong)JWPlayerViewController* playerViewController;
+@property(nonatomic, strong)RNJWPlayerViewController* playerViewController;
 @property(nonatomic, strong)JWPlayerView *playerView;
+
+@property(nonatomic, strong)AVAudioSession *audioSession;
 
 @property(nonatomic)BOOL pipEnabled;
 @property(nonatomic)BOOL backgroundAudioEnabled;
@@ -64,6 +69,7 @@
 @property(nonatomic, copy)RCTBubblingEventBlock onPlayerAdWarning;
 @property(nonatomic, copy)RCTBubblingEventBlock onPlayerAdError;
 @property(nonatomic, copy)RCTBubblingEventBlock onAdEvent;
+@property(nonatomic, copy)RCTBubblingEventBlock onAdTime;
 
 /* player view controller events */
 @property(nonatomic, copy)RCTBubblingEventBlock onScreenTapped;
@@ -95,6 +101,8 @@
 - (NSArray <JWCastingDevice *>*)availableDevices;
 
 /* Methods */
+-(void)setLicense:(id)license;
 -(void)toggleUIGroup:(UIView*)view :(NSString*)name :(NSString*)ofSubview :(BOOL)show;
+-(void)startDeinitProcess;
 
 @end
